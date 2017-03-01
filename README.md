@@ -24,8 +24,8 @@ key | data
 ----|-----
 Name | Name of the processor (shown in the toolbox and dialog)
 Group | Group in the toolbox
-Input | <klass>,<name>,<description>
-Output | <klass>,<name>,<description>
+Input | klass,name,description
+Output | klass,name,description
 
 klass may be (these are supported by the processing toolbox, all are
 not yet supported in this plugin):
