@@ -25,13 +25,18 @@ __copyright__ = '(C) 2017, Ari Jolma'
 
 __revision__ = '$Format:%H$'
 
+import re
+import subprocess
+
 from qgis.PyQt.QtCore import QSettings
-from qgis.core import QgsVectorFileWriter
+from qgis.core import *
+from qgis.utils import iface
 
 from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.core.parameters import ParameterVector
-from processing.core.outputs import OutputVector
+from processing.core.parameters import ParameterVector, ParameterRaster, ParameterExtent
+from processing.core.outputs import OutputVector, OutputRaster
 from processing.tools import dataobjects, vector
+from processing.tools.system import userFolder
 
 
 class PerlProcessor(GeoAlgorithm):
@@ -48,12 +53,9 @@ class PerlProcessor(GeoAlgorithm):
     All Processing algorithms should extend the GeoAlgorithm class.
     """
 
-    # Constants used to refer to parameters and outputs. They will be
-    # used when calling the algorithm from another algorithm, or when
-    # calling from the QGIS console.
-
-    OUTPUT_LAYER = 'OUTPUT_LAYER'
-    INPUT_LAYER = 'INPUT_LAYER'
+    def __init__(self, characteristics):
+        self.characteristics = characteristics
+        super().__init__()
 
     def defineCharacteristics(self):
         print("define characteristics")
@@ -61,58 +63,68 @@ class PerlProcessor(GeoAlgorithm):
         with some other properties.
         """
 
-        # The name that the user will see in the toolbox
-        self.name, self.i18n_name = self.trAlgorithm('Create copy of layer')
+        try:
+            # The name that the user will see in the toolbox
+            self.name, self.i18n_name = self.trAlgorithm(self.characteristics['name'])
 
-        # The branch of the toolbox under which the algorithm will appear
-        self.group, self.i18n_group = self.trAlgorithm('Algorithms for vector layers')
+            # The branch of the toolbox under which the algorithm will appear
+            self.group, self.i18n_group = self.trAlgorithm(self.characteristics['group'])
 
-        # We add the input vector layer. It can have any kind of geometry
-        # It is a mandatory (not optional) one, hence the False argument
-        self.addParameter(ParameterVector(self.INPUT_LAYER,
-                                          self.tr('Input layer'), [dataobjects.TYPE_VECTOR_ANY], False))
-
-        # We add a vector layer as output
-        self.addOutput(OutputVector(self.OUTPUT_LAYER,
-                                    self.tr('Output layer with selected features')))
+            for param in self.characteristics['args']:
+                klass, name, desc = param[1].split(",")
+                if (klass == "Raster"):
+                    if (param[0] == 'Input'):
+                        self.addParameter(ParameterRaster(name,
+                                                          self.tr(desc),
+                                                          [dataobjects.TYPE_RASTER],
+                                                          False)) # False = not optional
+                    else:
+                        self.addOutput(OutputRaster(name,
+                                                    self.tr(desc)))
+                elif (klass == "Extent"):
+                    self.addParameter(ParameterExtent(name,
+                                                      self.tr(desc)))
+                    
+        except Exception as e: print(e)
 
     def processAlgorithm(self, feedback):
         """Here is where the processing itself takes place."""
 
-        # The first thing to do is retrieve the values of the parameters
-        # entered by the user
-        inputFilename = self.getParameterValue(self.INPUT_LAYER)
-        output = self.getOutputValue(self.OUTPUT_LAYER)
+        try:
+            print("Arguments:")
+            for param in self.characteristics['args']:
+                klass, name, desc = param[1].split(",")
+                if (param[0] == 'Input'):
+                    print(name+": "+self.getParameterValue(name))
+                else:
+                    print(name+": "+self.getOutputValue(name))
 
-        # Input layers vales are always a string with its location.
-        # That string can be converted into a QGIS object (a
-        # QgsVectorLayer in this case) using the
-        # processing.getObjectFromUri() method.
-        vectorLayer = dataobjects.getObjectFromUri(inputFilename)
+            # run the perl program
 
-        # And now we can process
+            command = ['perl', '-w']
+            command.append(self.characteristics['filename'])
+            for param in self.characteristics['args']:
+                klass, name, desc = param[1].split(",")
+                if (param[0] == 'Input'):
+                    value = self.getParameterValue(name)
+                else:
+                    value = self.getOutputValue(name)
+                if (klass == "Extent"):
+                    xmin,xmax,ymin,ymax = value.split(",")
+                    value = xmin+','+ymin+','+xmax+','+ymax
+                command.append(value)
+            command.append('-q')
+            print(command)
+            proc = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True)
+            try:
+                out, err = proc.communicate()
+            except TimeoutExpired:
+                proc.kill()
+            out += err
+            print(out)
 
-        # First we create the output layer. The output value entered by
-        # the user is a string containing a filename, so we can use it
-        # directly
-        settings = QSettings()
-        systemEncoding = settings.value('/UI/encoding', 'System')
-        writer = QgsVectorFileWriter(output,
-                                     systemEncoding,
-                                     vectorLayer.fields(),
-                                     vectorLayer.wkbType(),
-                                     vectorLayer.crs())
-
-        # Now we take the features from input layer and add them to the
-        # output. Method features() returns an iterator, considering the
-        # selection that might exist in layer and the configuration that
-        # indicates should algorithm use only selected features or all
-        # of them
-        features = vector.features(vectorLayer)
-        for f in features:
-            writer.addFeature(f)
-
-        # There is nothing more to do here. We do not have to open the
-        # layer that we have created. The framework will take care of
-        # that, or will handle it if this algorithm is executed within
-        # a complex model
+        except Exception as e: print(e)
