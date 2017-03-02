@@ -1,18 +1,18 @@
 [general]
 name=Perl Processing Provider
-description=A plugin that allows one to use Perl programs in Processing toolbox.
-category=Analysis
-version=2.0
+description=A plugin that allows one to add Perl programs to the Processing toolbox.
+category=Processing
+version=0.0.1
 qgisMinimumVersion=2.0
 
 author=Ari Jolma
 email=ari.jolma@gmail.com
 
-tags=analysis,processing,perl
+tags=processing,perl
 
-homepage=
-tracker=
-repository=
+homepage=https://github.com/ajolma/QGISPerlProcessingProviderPlugin
+tracker=https://github.com/ajolma/QGISPerlProcessingProviderPlugin
+repository=https://github.com/ajolma/QGISPerlProcessingProviderPlugin
 
 experimental=True
 deprecated=False

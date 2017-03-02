@@ -38,3 +38,14 @@ name is the name of the parameter. It should be a single word. It is
 used when processors are linked together.
 
 description is used on the dialog.
+
+## Logging
+
+The perl program must support option ´-l´ as the first argument.
+The program is free to ignore it but typically it should switch
+to a mode, where the progress of the algorithm is logged to
+stdout or stderr using simple print lines.
+
+The plugin will show stdout and stderr in the algorithm dialog. If
+output is `n/100`, where n is between 0 and 100, the plugin will update
+the progress bar of the algorithm dialog.

@@ -26,7 +26,7 @@ __copyright__ = '(C) 2017, Ari Jolma'
 __revision__ = '$Format:%H$'
 
 import re
-import subprocess
+from subprocess import Popen, PIPE, STDOUT
 
 from qgis.PyQt.QtCore import QSettings
 from qgis.core import *
@@ -88,21 +88,10 @@ class PerlProcessor(GeoAlgorithm):
         except Exception as e: print(e)
 
     def processAlgorithm(self, feedback):
-        """Here is where the processing itself takes place."""
-
         try:
-            print("Arguments:")
-            for param in self.characteristics['args']:
-                klass, name, desc = param[1].split(",")
-                if (param[0] == 'Input'):
-                    print(name+": "+self.getParameterValue(name))
-                else:
-                    print(name+": "+self.getOutputValue(name))
-
-            # run the perl program
-
             command = ['perl', '-w']
             command.append(self.characteristics['filename'])
+            command.append('-l')
             for param in self.characteristics['args']:
                 klass, name, desc = param[1].split(",")
                 if (param[0] == 'Input'):
@@ -113,18 +102,11 @@ class PerlProcessor(GeoAlgorithm):
                     xmin,xmax,ymin,ymax = value.split(",")
                     value = xmin+','+ymin+','+xmax+','+ymax
                 command.append(value)
-            command.append('-q')
-            print(command)
-            proc = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True)
-            try:
-                out, err = proc.communicate()
-            except TimeoutExpired:
-                proc.kill()
-            out += err
-            print(out)
-
+            with Popen(command, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True) as p:
+                for line in p.stdout:
+                    match = re.match(r'^(\d+)/(\d+)$', line)
+                    if (match and int(float(match.group(2))) == 100):
+                        feedback.setProgress(int(float(match.group(1))))
+                    else:
+                        feedback.setProgressText(line.rstrip())
         except Exception as e: print(e)
