@@ -7,7 +7,7 @@ The program should be usable from the command line like this:
 
 `perl -w program.pl arguments`
 
-The program should be in directory `$HOME/.qgis3/processing/perlscripts`.
+The program should be in directory `$HOME/.qgis(2|3)/processing/perlscripts`.
 
 The arguments are described in the program in the order they are used
 in the command line using specific comments:

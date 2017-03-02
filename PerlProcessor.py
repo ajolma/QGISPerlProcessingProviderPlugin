@@ -55,14 +55,12 @@ class PerlProcessor(GeoAlgorithm):
 
     def __init__(self, characteristics):
         self.characteristics = characteristics
-        super().__init__()
+        GeoAlgorithm.__init__(self)
 
     def defineCharacteristics(self):
-        print("define characteristics")
         """Here we define the inputs and output of the algorithm, along
         with some other properties.
         """
-
         try:
             # The name that the user will see in the toolbox
             self.name, self.i18n_name = self.trAlgorithm(self.characteristics['name'])
@@ -76,7 +74,6 @@ class PerlProcessor(GeoAlgorithm):
                     if (param[0] == 'Input'):
                         self.addParameter(ParameterRaster(name,
                                                           self.tr(desc),
-                                                          [dataobjects.TYPE_RASTER],
                                                           False)) # False = not optional
                     else:
                         self.addOutput(OutputRaster(name,
@@ -102,11 +99,15 @@ class PerlProcessor(GeoAlgorithm):
                     xmin,xmax,ymin,ymax = value.split(",")
                     value = xmin+','+ymin+','+xmax+','+ymax
                 command.append(value)
-            with Popen(command, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True) as p:
-                for line in p.stdout:
+            proc = Popen(command, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
+            while True:
+                line = proc.stdout.readline()
+                if line == '' and proc.poll() is not None:
+                    break
+                if line:
                     match = re.match(r'^(\d+)/(\d+)$', line)
                     if (match and int(float(match.group(2))) == 100):
-                        feedback.setProgress(int(float(match.group(1))))
+                        feedback.setPercentage(int(float(match.group(1))))
                     else:
-                        feedback.setProgressText(line.rstrip())
+                        feedback.setInfo(line.rstrip())
         except Exception as e: print(e)

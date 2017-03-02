@@ -38,7 +38,7 @@ class PerlProcessingProvider(AlgorithmProvider):
     MY_DUMMY_SETTING = 'MY_DUMMY_SETTING'
 
     def __init__(self):
-        super().__init__()
+        AlgorithmProvider.__init__(self)
 
         # Deactivate provider by default
         self.activate = False
@@ -64,6 +64,17 @@ class PerlProcessingProvider(AlgorithmProvider):
         AlgorithmProvider.unload(self)
         #ProcessingConfig.removeSetting(
         #    PerlAlgorithmProvider.MY_DUMMY_SETTING)
+
+    def getName(self):
+        '''The name that will appear on the toolbox group.'''
+        return "perl"
+
+    def getDescription(self):
+        return self.name()
+
+    def getIcon(self):
+        '''return the default icon'''
+        return AlgorithmProvider.getIcon(self)
 
     def id(self):
         """
@@ -100,9 +111,7 @@ class PerlProcessingProvider(AlgorithmProvider):
 
         try:
             self.alglist = []
-        # the Perl processor programs are in /perlscripts
             f = userFolder()+"/perlscripts/"
-            print("load processors from "+f)
         
             if (not os.path.exists(f)):
                 mkdir(f)
@@ -129,8 +138,7 @@ class PerlProcessingProvider(AlgorithmProvider):
             for line in file:
                 match = re.match(r'^# QP4: (\w+): (.*)', line)
                 if (match):
-                    print(match.group(1))
-                    print(match.group(2))
+                    print(match.group(1)+","+match.group(2))
                     if (match.group(1) == "Name"):
                         tics['name'] = match.group(2)
                     elif (match.group(1) == "Group"):
