@@ -33,10 +33,11 @@ from qgis.core import *
 from qgis.utils import iface
 
 from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.core.parameters import ParameterVector, ParameterRaster, ParameterExtent
-from processing.core.outputs import OutputVector, OutputRaster
+from processing.core.parameters import *
+from processing.core.outputs import *
 from processing.tools import dataobjects, vector
 from processing.tools.system import userFolder
+from processing.core.ProcessingConfig import ProcessingConfig
 
 
 class PerlProcessor(GeoAlgorithm):
@@ -81,6 +82,14 @@ class PerlProcessor(GeoAlgorithm):
                 elif (klass == "Extent"):
                     self.addParameter(ParameterExtent(name,
                                                       self.tr(desc)))
+                elif (klass == "Number"):
+                    if (param[0] == 'Input'):
+                        pass # todo
+                    else:
+                        print("add "+name+" to "+self.name)
+                        self.addOutput(OutputNumber(name,
+                                                    self.tr(desc)))
+            self.addParameter(ParameterBoolean('KeepLogOpen', 'Keep the log open after processing'))
                     
         except Exception as e: print(e)
 
@@ -93,13 +102,19 @@ class PerlProcessor(GeoAlgorithm):
                 klass, name, desc = param[1].split(",")
                 if (param[0] == 'Input'):
                     value = self.getParameterValue(name)
+                    if (klass == "Extent"):
+                        xmin,xmax,ymin,ymax = value.split(",")
+                        value = xmin+','+ymin+','+xmax+','+ymax
                 else:
                     value = self.getOutputValue(name)
-                if (klass == "Extent"):
-                    xmin,xmax,ymin,ymax = value.split(",")
-                    value = xmin+','+ymin+','+xmax+','+ymax
+                    # some things don't make sense to put into the cmdline
+                    if (klass == "Extent"):
+                        continue
+                    elif (klass == "Number"):
+                        continue
                 command.append(value)
             proc = Popen(command, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
+            output = []
             while True:
                 line = proc.stdout.readline()
                 if line == '' and proc.poll() is not None:
@@ -109,5 +124,32 @@ class PerlProcessor(GeoAlgorithm):
                     if (match and int(float(match.group(2))) == 100):
                         feedback.setPercentage(int(float(match.group(1))))
                     else:
-                        feedback.setInfo(line.rstrip())
-        except Exception as e: print(e)
+                        line = line.rstrip()
+                        output.append(line)
+                        feedback.setInfo(line)
+            ProcessingConfig.setSettingValue(ProcessingConfig.KEEP_DIALOG_OPEN, True)
+            if (proc.returncode == 0):
+                # ok, arrange output for downstream to use
+                ProcessingConfig.setSettingValue(ProcessingConfig.KEEP_DIALOG_OPEN, self.getParameterValue('KeepLogOpen'))
+                for param in self.characteristics['args']:
+                    klass, name, desc = param[1].split(",")
+                    if (param[0] == 'Output'):
+                        print("output is "+output[0])
+                        if (klass == "Extent"):
+                            xmin,ymin,xmax,ymax = output[0].split(",")
+                            value = [float(xmin),float(xmax),float(ymin),float(ymax)]
+                            self.setOutputValue(name, value)
+                        elif (klass == "Number"):
+                            value = float(output[0])
+                            self.setOutputValue(name, value)
+            elif (proc.returncode == 126):
+                feedback.setInfo("Permission problem or command is not an executable")
+            elif (proc.returncode == 127):
+                feedback.setInfo("Command not found")
+            else:
+                # print(type(feedback).__name__) = 'AlgorithmDialog'
+                feedback.setInfo("Error in the Perl program.")
+                feedback.setInfo("Hopefully error messages above clarify it.")
+        except Exception as e:
+            print("error in PerlProcessor.processAlgorithm()")
+            print(e)
