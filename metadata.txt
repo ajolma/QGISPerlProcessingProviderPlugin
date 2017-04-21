@@ -3,7 +3,7 @@ name=Perl Processing Provider
 description=A plugin for processing in Perl.
 about=A plugin that allows adding Perl programs to the Processing toolbox.
 category=Processing
-version=0.0.1
+version=0.0.2
 qgisMinimumVersion=2.0
 
 author=Ari Jolma
